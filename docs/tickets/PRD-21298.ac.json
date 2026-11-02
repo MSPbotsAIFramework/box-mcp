@@ -1,0 +1,184 @@
+[
+  {
+    "id": "TC1",
+    "ac": "AC1",
+    "text": "Given valid Service Account credential headers, when box_test_connection is called, then it returns status: ok and the authenticated user's id/name/login",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC2",
+    "ac": "AC1",
+    "text": "Given a real Box Service Account, when box_test_connection is called against live Box, then the returned user matches the Service Account configured in the Box admin console",
+    "type": "manual",
+    "steps": [
+      "Obtain a real Box Service Account Client Id/Secret/Enterprise Id",
+      "Call POST /mcp tools/call box_test_connection with those three headers",
+      "Compare the returned user id/login against the Box admin console's Service Account entry"
+    ],
+    "expect": "Returned user id/login match the Box admin console's Service Account exactly",
+    "result": "untested",
+    "notes": "needs a real vendor account -- DEV01 has no Box test tenant"
+  },
+  {
+    "id": "TC3",
+    "ac": "AC2",
+    "text": "Given the X-Box-Enterprise-Id header is missing, when any Box tool is called, then the response is HTTP 401 naming X-Box-Enterprise-Id, and no call to Box's token endpoint was made",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC4",
+    "ac": "AC3",
+    "text": "Given a mocked Box folder response, when box_get_folder_info is called, then the tool returns id/name/parent/size/item_count/owner matching the mock",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC5",
+    "ac": "AC4",
+    "text": "Given a mocked folder with 60 items, when box_list_folder_items is called with default paging, then exactly 25 items are returned with has_more: true and a usable next_offset",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC6",
+    "ac": "AC4",
+    "text": "Given limit=500 is requested, when box_list_folder_items is called, then the effective page size is clamped to 200, not 500",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC7",
+    "ac": "AC5",
+    "text": "Given a parent folder id and name, when box_create_folder is called against a mocked Box API, then the tool returns the new folder's id/name from the mocked response",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC8",
+    "ac": "AC6",
+    "text": "Given an existing folder, when box_update_folder is called with a new name, then the mocked PUT request body contains only name (not an unrelated field) and the tool returns the updated name",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC9",
+    "ac": "AC7",
+    "text": "Given a non-empty folder, when box_delete_folder is called without confirm/recursive, then no DELETE call is made to Box and the tool returns an invalid_argument error",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC10",
+    "ac": "AC7",
+    "text": "Given a real empty Box test folder, when box_delete_folder is called, then the folder no longer appears in Box",
+    "type": "manual",
+    "steps": [
+      "Create an empty test folder in a real Box account",
+      "Call box_delete_folder with that folder's id",
+      "List the parent folder's items in Box"
+    ],
+    "expect": "The deleted folder no longer appears in the parent folder's item list",
+    "result": "untested",
+    "notes": "needs a real vendor account -- DEV01 has no Box test tenant"
+  },
+  {
+    "id": "TC11",
+    "ac": "AC8",
+    "text": "Given a mocked Box file response, when box_get_file_info is called, then the tool returns id/name/size/parent_id/modified_at matching the mock",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC12",
+    "ac": "AC9",
+    "text": "Given a mocked 302 redirect with a Location header, when box_get_file_download_url is called, then the tool returns that URL as a string field, and the response body never contains file bytes",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC13",
+    "ac": "AC10",
+    "text": "Given 11 MB of content, when box_upload_file is called, then the tool rejects it with invalid_argument naming the 10 MB cap, and no upload request is sent to Box",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC14",
+    "ac": "AC10",
+    "text": "Given 1 KB of text content and a parent folder id, when box_upload_file is called against a mocked upload endpoint, then the tool returns the new file's id/name from the mocked response",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC15",
+    "ac": "AC11",
+    "text": "Given an existing file, when box_update_file is called with a new parent id (move), then the mocked PUT request body contains parent.id and the tool returns the updated parent",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC16",
+    "ac": "AC12",
+    "text": "Given an existing file, when box_delete_file is called without confirm: true, then no DELETE call is made and the tool returns an invalid_argument error",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC17",
+    "ac": "AC12",
+    "text": "Given a real Box test file, when box_delete_file is called with confirm: true, then the file no longer appears in Box",
+    "type": "manual",
+    "steps": [
+      "Create a throwaway test file in a real Box account",
+      "Call box_delete_file with that file's id and confirm: true",
+      "List the parent folder's items in Box"
+    ],
+    "expect": "The deleted file no longer appears in the parent folder's item list",
+    "result": "untested",
+    "notes": "needs a real vendor account -- DEV01 has no Box test tenant"
+  },
+  {
+    "id": "TC18",
+    "ac": "AC13",
+    "text": "Given a mocked search response with 3 results, when box_search is called with a keyword, then the tool returns the 3 items (id/name/type) respecting the pagination contract",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC19",
+    "ac": "AC14",
+    "text": "Given an existing file and access: open, when box_create_shared_link is called against a mocked PUT, then the tool returns the mocked link URL and access: open",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC20",
+    "ac": "AC15",
+    "text": "Given an item with no shared link in the mocked response, when box_get_shared_link is called, then the tool returns {shared_link: null}, not an error",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC21",
+    "ac": "AC16",
+    "text": "Given Box returns 429 with Retry-After, when any read tool is called, then the client retries with backoff and the tool eventually returns data (or a rate_limited error if retries are exhausted) -- never an unhandled exception",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC22",
+    "ac": "AC16",
+    "text": "Given Box returns 404, when any get_* tool is called, then the tool returns {error:{code:not_found,...}} and the error message never includes the request's X-Box-Client-Secret value",
+    "type": "auto",
+    "tests": []
+  },
+  {
+    "id": "TC23",
+    "ac": "AC17",
+    "text": "Given two concurrent requests use different X-Box-Enterprise-Id/credential values, when both call box_test_connection at the same time (simulated via two interleaved async calls), then each receives only its own mocked identity and the ContextVar for one is never visible to the other",
+    "type": "auto",
+    "tests": []
+  }
+]
