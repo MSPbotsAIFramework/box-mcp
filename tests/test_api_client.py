@@ -335,6 +335,39 @@ async def test_rate_limit_exhausted_returns_rate_limited_error(monkeypatch):
     assert result["error"]["retryable"] is True
 
 
+async def test_get_file_download_url_retries_on_429(monkeypatch):
+    # Regression for PRD-21298 review round 1: redirect_location() used to call
+    # self._http directly and skip _request()'s retry loop entirely, so a single 429
+    # from Box's content-redirect endpoint failed the tool outright.
+    replies = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "0"}, json={}),
+            httpx.Response(302, headers={"Location": "https://dl.boxcloud.com/d/1/abc"}),
+        ]
+    )
+    rec = Recorder({"files/1/content": lambda r: next(replies)})
+    result = await _call(monkeypatch, rec, "box_get_file_download_url", {"id": "1"})
+    assert result == {"id": "1", "download_url": "https://dl.boxcloud.com/d/1/abc"}
+    assert len(rec.calls("files/1/content")) == 2
+
+
+async def test_upload_file_retries_on_429(monkeypatch):
+    # Regression for PRD-21298 review round 1: upload() used to call self._http
+    # directly and skip _request()'s retry loop entirely, so a single 429 from Box's
+    # upload host failed the tool outright even though writes are documented to retry
+    # on 429 (README.md: "writes only on 429").
+    replies = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "0"}, json={}),
+            httpx.Response(200, json={"entries": [{"id": "55", "name": "note.txt"}]}),
+        ]
+    )
+    rec = Recorder({"POST files/content": lambda r: next(replies)})
+    result = await _call(monkeypatch, rec, "box_upload_file", {"parent_id": "0", "name": "note.txt", "content": "hello"})
+    assert result == {"id": "55", "name": "note.txt"}
+    assert len(rec.calls("files/content", "POST")) == 2
+
+
 async def test_not_found_never_raises(monkeypatch):
     rec = Recorder({"files/999": lambda r: httpx.Response(404, json={"message": "Not Found"})})
     result = await _call(monkeypatch, rec, "box_get_file_info", {"id": "999"})
