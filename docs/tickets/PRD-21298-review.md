@@ -1,5 +1,7 @@
 # PRD-21298 · Code review
 
+Status: frozen @ 78fa004
+
 ## Round 1 · 2026-11-04 · reviewed dev/PRD-21298 @ f0f841f (base main @ e0af09a)
 
 Verdict: changes requested
@@ -21,3 +23,22 @@ Added two regression tests in `tests/test_api_client.py`: `test_get_file_downloa
 Gates rerun on `a33f75b` (synced with `main` @ e0af09a, unchanged since Round 1): `uv run pytest` equivalent (`.venv/bin/python -m pytest -q`) — 118 passed, 0 failed (116 before this round's two new tests). No new Chinese characters (`grep -rnP '[\x{4e00}-\x{9fff}]'` over the tree, excluding `.git`/`.venv`/`.pytest_cache`, is empty). README Connector section and `tools/list` shape unchanged (not touched by this fix; both still covered by `tests/test_tools.py` and `tests/test_middleware.py`, included in the 118). `gitleaks` is not installed on this machine, so it was not run; this fix does not touch credential handling.
 
 No other changes made; this round only touches `src/box_mcp/api_client.py` and `tests/test_api_client.py`.
+
+## Round 2 · 2026-11-04 · reviewed dev/PRD-21298 @ 78fa004 (base main @ e0af09a)
+
+Verdict: approved
+
+### Round 1 fix verified
+
+Round 1's must-fix 1 (`redirect_location`/`upload` bypassing the retry loop) is fixed correctly. Diffed `src/box_mcp/api_client.py` at `7f83101..78fa004`: both call sites now route through the new `BoxClient._send_with_retry(method, log_path, send)`, which is the same loop `_request()` itself now calls — so there is exactly one retry/backoff implementation, not three. `redirect_location` passes `method="GET"` (reads retry on 429/5xx/timeout/network-error, matching README.md:143-144) and `upload` passes `method="POST"` (writes retry only on 429) — the method classification each tool needs for the documented policy is preserved. `_request()`'s own behavior (status>=400 -> `BoxError`, empty body -> `None`, non-JSON body -> `{"raw_response": ...}`) is unchanged, just now expressed in terms of the shared `send()` callback. The two new tests (`test_get_file_download_url_retries_on_429`, `test_upload_file_retries_on_429` in `tests/test_api_client.py`) each replay a 429-then-success sequence through the real tool call and assert Box was hit twice — independently re-ran `uv run pytest -q` on this worktree (not just read the claimed count): **118 passed, 0 failed**, matching the `[DEV]` stub.
+
+### New diff since Round 1 (`7f83101..78fa004`)
+
+Scope is exactly `src/box_mcp/api_client.py`, `tests/test_api_client.py`, and this review doc — no other file changed. No new findings:
+
+- Retry policy (`retryable = status == 429 or (method == "GET" and (status == 0 or status >= 500))`) is unchanged from Round 1, only relocated into `_send_with_retry`; it still matches README.md's documented behavior for both reads and writes.
+- `_send_with_retry`'s own exception handling (`httpx.TimeoutException` / `httpx.RequestError` -> `BoxError(0, ...)`) matches what `upload()`'s old inline try/except did, so the error messages/semantics for upload timeouts and network errors are preserved, not changed.
+- No credential handling, auth, middleware, error-code mapping, or tool surface touched by this round — independently re-ran the non-ASCII scan (`grep -rnP '[\x{4e00}-\x{9fff}]'` over the tree, excluding `.git`/`.venv`/`.pytest_cache`): no output, confirming the Fixes section's claim.
+- README.md's Connector section (verbatim-diffed against `vendor-mcp-development/reference/readme-connector-section.md`) and the Authentication headers / Tools tables were not touched by this round and still match the code (14 tools, 3 credential headers, retry-policy line).
+
+No must-fix, no suggestions. Full implementation (Round 1's scope) was also read in this round since this is effectively the first complete review of the code surface area: auth/token exchange (`auth.py`, never cached, per-request `ContextVar`), middleware isolation (`server.py`, tested concurrently for AC17 including at the token level in `test_concurrent_tool_calls_never_cross_tenant_tokens`), delete-confirm guards (`box_delete_file`/`box_delete_folder`), the 10 MB upload cap, pagination clamp, and the error envelope mapping (`errors.py`) all match the tech design and README with no discrepancies found.
